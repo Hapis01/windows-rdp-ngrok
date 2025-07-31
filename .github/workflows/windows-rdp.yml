@@ -21,17 +21,20 @@ jobs:
       run: |
         .\ngrok\ngrok.exe authtoken 30dfRbafgrpHHNWBjmEW0yy345z_3Tp1aSYhSfmcQbtYsiw9q
 
-    - name: Start Ngrok TCP for RDP and Show URL
+    - name: Start Ngrok in background
       shell: pwsh
       run: |
-        Start-Process .\ngrok\ngrok.exe -ArgumentList "tcp 3389"
+        Start-Job { .\ngrok\ngrok.exe tcp 3389 } | Out-Null
         Start-Sleep -Seconds 10
+
+    - name: Show Ngrok TCP Address
+      shell: pwsh
+      run: |
         try {
-          $tunnel = Invoke-RestMethod -Uri http://127.0.0.1:4040/api/tunnels
-          $url = $tunnel.tunnels[0].public_url
-          Write-Host "`n🔗 Ngrok RDP Address: $url`n"
+          $url = (Invoke-RestMethod -Uri http://127.0.0.1:4040/api/tunnels).tunnels[0].public_url
+          Write-Host "`n🔗 Ngrok TCP Address: $url"
         } catch {
-          Write-Host "❌ Gagal mengambil alamat ngrok. Pastikan ngrok berjalan."
+          Write-Host "`n❌ Gagal mengambil alamat Ngrok. Coba cek apakah ngrok berjalan dengan benar."
         }
 
     - name: Enable RDP Access
@@ -40,4 +43,6 @@ jobs:
         net user runneradmin Hapis@1234
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        Write-Host "`n✅ RDP access is enabled! Username: runneradmin | Password: Hapis@1234"
+        Write-Host "`n✅ RDP is enabled. Login info:"
+        Write-Host "  • Username: runneradmin"
+        Write-Host "  • Password: Hapis@1234"
