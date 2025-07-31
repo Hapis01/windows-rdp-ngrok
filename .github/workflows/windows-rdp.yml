@@ -29,8 +29,7 @@ jobs:
 
     - name: Enable RDP Access
       run: |
-        net user runneradmin myrdppassword123
-        Enable-ComputerRestore -Drive "C:\"
+        net user runneradmin Hapis@1234
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         Write-Host "RDP is ready! Use ngrok TCP address."
