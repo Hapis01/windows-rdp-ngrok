@@ -1,0 +1,36 @@
+name: Start Windows RDP with Ngrok
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rdp:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Unzip Ngrok
+      shell: pwsh
+      run: |
+        Expand-Archive -Path ngrok.zip -DestinationPath $PWD\ngrok
+
+    - name: Add Ngrok Token
+      shell: pwsh
+      run: |
+        .\ngrok\ngrok.exe authtoken 30dfRbafgrpHHNWBjmEW0yy345z_3Tp1aSYhSfmcQbtYsiw9q
+
+    - name: Start Ngrok TCP for RDP
+      shell: pwsh
+      run: |
+        Start-Process .\ngrok\ngrok.exe -ArgumentList "tcp 3389"
+        Start-Sleep -Seconds 10
+
+    - name: Enable RDP Access
+      run: |
+        net user runneradmin myrdppassword123
+        Enable-ComputerRestore -Drive "C:\"
+        Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Write-Host "RDP is ready! Use ngrok TCP address."
