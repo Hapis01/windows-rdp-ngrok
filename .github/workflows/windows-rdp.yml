@@ -11,7 +11,7 @@ jobs:
       run: |
         Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip" -OutFile "ngrok.zip"
         Expand-Archive ngrok.zip -DestinationPath "$env:USERPROFILE\ngrok"
-        & "$env:USERPROFILE\ngrok\ngrok.exe" authtoken <ISI_TOKEN_KAMU>
+        & "$env:USERPROFILE\ngrok\ngrok.exe" authtoken 2vQVdz7F82brwtpTYKFJbELmqq6_3zsmPpHoBTN7QX13u6JQ4
 
     - name: Start Ngrok HTTP
       run: |
