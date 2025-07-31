@@ -11,6 +11,11 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    - name: Download Ngrok
+      shell: pwsh
+      run: |
+        Invoke-WebRequest -Uri https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip -OutFile ngrok.zip
+
     - name: Unzip Ngrok
       shell: pwsh
       run: |
@@ -19,7 +24,7 @@ jobs:
     - name: Add Ngrok Token
       shell: pwsh
       run: |
-        .\ngrok\ngrok.exe authtoken 30dfRbafgrpHHNWBjmEW0yy345z_3Tp1aSYhSfmcQbtYsiw9q
+        .\ngrok\ngrok.exe authtoken 2vQVdz7F82brwtpTYKFJbELmqq6_3zsmPpHoBTN7QX13u6JQ4
 
     - name: Enable RDP Access
       shell: pwsh
@@ -32,4 +37,7 @@ jobs:
       shell: pwsh
       run: |
         Write-Host "⏳ Menjalankan Ngrok, tunggu sebentar..."
-        .\ngrok\ngrok.exe tcp 3389
+        Start-Process -NoNewWindow -FilePath "$PWD\ngrok\ngrok.exe" -ArgumentList "tcp 3389"
+        Start-Sleep -Seconds 10
+        Invoke-RestMethod -Uri http://127.0.0.1:4040/api/tunnels | ConvertTo-Json | Out-File ngrok-tunnel.json
+        Get-Content ngrok-tunnel.json
