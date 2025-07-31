@@ -8,28 +8,46 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Download Ngrok
+    - name: Download ngrok
       run: |
         Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip" -OutFile "ngrok.zip"
-        Expand-Archive -Path "ngrok.zip" -DestinationPath "ngrok"
-
+        Expand-Archive -Path "ngrok.zip" -DestinationPath "."
+    
     - name: Connect Ngrok Authtoken
       run: |
-        .\ngrok\ngrok.exe authtoken 2vQVdz7F82brwtpTYKFJbELmqq6_3zsmPpHoBTN7QX13u6JQ4
+        .\ngrok.exe authtoken 2vQVdz7F82brwtpTYKFJbELmqq6_3zsmPpHoBTN7QX13u6JQ4
 
-    - name: Enable RDP Access
+    - name: Enable RDP and set password
       run: |
         net user runneradmin Hapis@1234
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    - name: Start Ngrok Tunnel
+    - name: Start ngrok TCP tunnel on port 3389
       run: |
-        Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389"
-        Start-Sleep -Seconds 5
+        Start-Process .\ngrok.exe -ArgumentList "tcp 3389" -NoNewWindow
+        Start-Sleep -Seconds 15
 
-    - name: Get Ngrok RDP Address
+    - name: Get public ngrok TCP address
       run: |
-        $tunnels = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-        $rdpTunnel = $tunnels.tunnels | Where-Object {$_.proto -eq "tcp"}
-        Write-Host "🟢 RDP Address: $($rdpTunnel.public_url)"
+        $maxAttempts = 10
+        $attempt = 0
+        $success = $false
+
+        while (-not $success -and $attempt -lt $maxAttempts) {
+          try {
+            $response = Invoke-RestMethod -Uri http://127.0.0.1:4040/api/tunnels
+            $tcpTunnel = $response.tunnels | Where-Object { $_.proto -eq "tcp" }
+            if ($tcpTunnel) {
+              Write-Host "✅ RDP address: $($tcpTunnel.public_url)"
+              $success = $true
+            }
+          } catch {
+            Start-Sleep -Seconds 2
+            $attempt++
+          }
+        }
+
+        if (-not $success) {
+          Write-Host "❌ Gagal mendapatkan alamat ngrok. Pastikan ngrok berjalan dengan benar."
+        }
