@@ -1,52 +1,54 @@
-name: Windows GUI via Browser (noVNC)
+name: Start Windows RDP with Ngrok
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
 
 jobs:
-  run-rdp:
+  rdp:
     runs-on: windows-latest
     timeout-minutes: 360
 
     steps:
-    - name: Download & Setup Ngrok
+    - name: Ekstrak ngrok.zip
       run: |
-        Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip" -OutFile "ngrok.zip"
         Expand-Archive ngrok.zip -DestinationPath "$env:USERPROFILE\ngrok"
-        "$env:USERPROFILE\ngrok\ngrok.exe" authtoken 2vQVdz7F82brwtpTYKFJbELmqq6_3zsmPpHoBTN7QX13u6JQ4
 
-    - name: Set password user
-      run: net user runneradmin Hapis@1234
-
-    - name: Install TightVNC Server
+    - name: Autentikasi Ngrok
       run: |
-        Invoke-WebRequest -Uri "https://www.tightvnc.com/download/2.8.81/tightvnc-2.8.81-gpl-setup-64bit.msi" -OutFile "tightvnc.msi"
-        msiexec /i tightvnc.msi /quiet /norestart
+        & "$env:USERPROFILE\ngrok\ngrok.exe" authtoken 2vQVdz7F82brwtpTYKFJbELmqq6_3zsmPpHoBTN7QX13u6JQ4
 
-    - name: Start TightVNC Server
+    - name: Aktifkan RDP dan set password
       run: |
-        Start-Process "C:\Program Files\TightVNC\tvnserver.exe"
+        net user runneradmin Hapis@1234
+        Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+    - name: Jalankan Ngrok TCP Tunnel
+      run: |
+        Start-Process -FilePath "$env:USERPROFILE\ngrok\ngrok.exe" -ArgumentList "tcp 3389" -WindowStyle Hidden
         Start-Sleep -Seconds 10
 
-    - name: Download noVNC
-      run: |
-        Invoke-WebRequest -Uri "https://github.com/novnc/noVNC/archive/refs/heads/master.zip" -OutFile "novnc.zip"
-        Expand-Archive -Path "novnc.zip" -DestinationPath "."
-
-    - name: Start noVNC Web Server
-      run: |
-        cd .\noVNC-master
-        python -m http.server 6080 &
-        Start-Sleep -Seconds 10
-
-    - name: Start Ngrok Tunnel for noVNC
-      run: |
-        Start-Process "$env:USERPROFILE\ngrok\ngrok.exe" -ArgumentList "http 6080" -WindowStyle Hidden
-        Start-Sleep -Seconds 15
-
-    - name: Get Public URL
+    - name: Tampilkan Alamat RDP
       shell: pwsh
       run: |
-        $tunnels = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-        $url = $tunnels.tunnels[0].public_url
-        "🌐 Akses GUI Windows via browser (noVNC): $url/vnc.html" | Out-File -FilePath web-access.txt -Encoding utf8
-        Get-Content web-access.txt
+        $maxAttempts = 10
+        $attempt = 0
+        $success = $false
+
+        while (-not $success -and $attempt -lt $maxAttempts) {
+          try {
+            $response = Invoke-RestMethod -Uri http://127.0.0.1:4040/api/tunnels
+            $tcpTunnel = $response.tunnels | Where-Object { $_.proto -eq "tcp" }
+            if ($tcpTunnel) {
+              Write-Host "✅ RDP address: $($tcpTunnel.public_url)"
+              $success = $true
+            }
+          } catch {
+            Start-Sleep -Seconds 5
+            $attempt++
+          }
+        }
+
+        if (-not $success) {
+          Write-Host "❌ Gagal mendapatkan alamat Ngrok. Pastikan tunnel berjalan."
+        }
