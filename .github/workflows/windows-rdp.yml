@@ -7,6 +7,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 360
     steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
     - name: Download Ngrok
       run: |
         Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip" -OutFile "ngrok.zip"
@@ -24,10 +27,20 @@ jobs:
         $listener.Prefixes.Add("http://*:8080/")
         $listener.Start()
         Write-Host "Server started on port 8080..."
+
         while ($listener.IsListening) {
           $context = $listener.GetContext()
           $response = $context.Response
-          $buffer = [System.Text.Encoding]::UTF8.GetBytes("<html><body><h1>Remote Access Started!</h1></body></html>")
+
+          $filePath = "$(Get-Location)\public\index.html"
+
+          if (Test-Path $filePath) {
+            $html = Get-Content $filePath -Raw
+          } else {
+            $html = "<html><body><h1>File public/index.html tidak ditemukan.</h1></body></html>"
+          }
+
+          $buffer = [System.Text.Encoding]::UTF8.GetBytes($html)
           $response.ContentLength64 = $buffer.Length
           $response.OutputStream.Write($buffer, 0, $buffer.Length)
           $response.Close()
