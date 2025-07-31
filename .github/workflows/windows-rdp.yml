@@ -1,41 +1,37 @@
-name: Windows RDP Ngrok Browser
+name: Windows RDP via Browser
 
-on: [workflow_dispatch]
+on: [push]
 
 jobs:
-  build:
+  rdp:
     runs-on: windows-latest
     timeout-minutes: 360
-
     steps:
     - name: Download Ngrok
       run: |
         Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip" -OutFile "ngrok.zip"
         Expand-Archive ngrok.zip -DestinationPath "$env:USERPROFILE\ngrok"
-        $env:Path += ";$env:USERPROFILE\ngrok"
-        & "$env:USERPROFILE\ngrok\ngrok.exe" authtoken 2vQVdz7F82brwtpTYKFJbELmqq6_3zsmPpHoBTN7QX13u6JQ4
+        & "$env:USERPROFILE\ngrok\ngrok.exe" authtoken <ISI_TOKEN_KAMU>
 
-    - name: Start Web Server (PowerShell HTTP)
+    - name: Start Ngrok HTTP
+      run: |
+        Start-Process -FilePath "$env:USERPROFILE\ngrok\ngrok.exe" -ArgumentList "http 8080" -WindowStyle Hidden
+        Start-Sleep -Seconds 5
+
+    - name: Setup mini HTTP server
       run: |
         $listener = New-Object System.Net.HttpListener
         $listener.Prefixes.Add("http://*:8080/")
         $listener.Start()
-        Write-Output "Server started on port 8080..."
+        Write-Host "Server started on port 8080..."
         while ($listener.IsListening) {
           $context = $listener.GetContext()
           $response = $context.Response
-          $buffer = [System.Text.Encoding]::UTF8.GetBytes("Windows Runner Active: $(hostname)")
+          $buffer = [System.Text.Encoding]::UTF8.GetBytes("<html><body><h1>Remote Access Started!</h1></body></html>")
           $response.ContentLength64 = $buffer.Length
           $response.OutputStream.Write($buffer, 0, $buffer.Length)
-          $response.OutputStream.Close()
+          $response.Close()
         }
 
-    - name: Start Ngrok HTTP Tunnel
-      run: Start-Process -FilePath "$env:USERPROFILE\ngrok\ngrok.exe" -ArgumentList "http 8080" -WindowStyle Hidden
-
-    - name: Wait and Show Public URL
-      run: |
-        Start-Sleep -Seconds 10
-        $tunnels = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-        $url = $tunnels.tunnels[0].public_url
-        Write-Output "`n✅ Browser access URL: $url"
+    - name: Keep alive
+      run: Start-Sleep -Seconds 10800
