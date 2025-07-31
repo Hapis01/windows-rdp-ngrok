@@ -6,28 +6,27 @@ on:
 jobs:
   rdp:
     runs-on: windows-latest
-    timeout-minutes: 3600
+    timeout-minutes: 360
 
     steps:
-    - name: Download and Setup Ngrok
+    - name: 🔄 Setup Ngrok from Local ZIP
       run: |
-        Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip" -OutFile "ngrok.zip"
-        Expand-Archive ngrok.zip -DestinationPath "$env:USERPROFILE\ngrok"
+        Expand-Archive "${{ github.workspace }}\ngrok.zip" -DestinationPath "$env:USERPROFILE\ngrok"
         $env:Path += ";$env:USERPROFILE\ngrok"
-        & "$env:USERPROFILE\ngrok\ngrok.exe" authtoken 2vQVdz7F82brwtpTYKFJbELmqq6_3zsmPpHoBTN7QX13u6JQ4
+        & "$env:USERPROFILE\ngrok\ngrok.exe" authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
 
-    - name: Enable RDP and Set Password
+    - name: 🔐 Enable RDP and Set Password
       run: |
         net user runneradmin Hapis@1234
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    - name: Start Ngrok TCP Tunnel (in background)
+    - name: 🚀 Start Ngrok TCP Tunnel (Background)
       run: |
         Start-Process -FilePath "$env:USERPROFILE\ngrok\ngrok.exe" -ArgumentList "tcp 3389" -WindowStyle Hidden
         Start-Sleep -Seconds 10
 
-    - name: Wait and Fetch RDP Address
+    - name: 🔍 Wait and Fetch RDP Address
       shell: pwsh
       run: |
         $maxAttempts = 10
