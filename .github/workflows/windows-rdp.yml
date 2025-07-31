@@ -8,36 +8,28 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-
     - name: Download Ngrok
-      shell: pwsh
       run: |
-        Invoke-WebRequest -Uri https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip -OutFile ngrok.zip
+        Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip" -OutFile "ngrok.zip"
+        Expand-Archive -Path "ngrok.zip" -DestinationPath "ngrok"
 
-    - name: Unzip Ngrok
-      shell: pwsh
-      run: |
-        Expand-Archive -Path ngrok.zip -DestinationPath $PWD\ngrok
-
-    - name: Add Ngrok Token
-      shell: pwsh
+    - name: Connect Ngrok Authtoken
       run: |
         .\ngrok\ngrok.exe authtoken 2vQVdz7F82brwtpTYKFJbELmqq6_3zsmPpHoBTN7QX13u6JQ4
 
     - name: Enable RDP Access
-      shell: pwsh
       run: |
         net user runneradmin Hapis@1234
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    - name: Start Ngrok TCP and Show Address
-      shell: pwsh
+    - name: Start Ngrok Tunnel
       run: |
-        Write-Host "⏳ Menjalankan Ngrok, tunggu sebentar..."
-        Start-Process -NoNewWindow -FilePath "$PWD\ngrok\ngrok.exe" -ArgumentList "tcp 3389"
-        Start-Sleep -Seconds 10
-        Invoke-RestMethod -Uri http://127.0.0.1:4040/api/tunnels | ConvertTo-Json | Out-File ngrok-tunnel.json
-        Get-Content ngrok-tunnel.json
+        Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389"
+        Start-Sleep -Seconds 5
+
+    - name: Get Ngrok RDP Address
+      run: |
+        $tunnels = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
+        $rdpTunnel = $tunnels.tunnels | Where-Object {$_.proto -eq "tcp"}
+        Write-Host "🟢 RDP Address: $($rdpTunnel.public_url)"
