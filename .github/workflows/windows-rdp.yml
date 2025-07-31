@@ -6,29 +6,29 @@ on:
 jobs:
   rdp:
     runs-on: windows-latest
+    timeout-minutes: 3600
 
     steps:
-    - name: Download ngrok
+    - name: Download and Setup Ngrok
       run: |
         Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip" -OutFile "ngrok.zip"
-        Expand-Archive -Path "ngrok.zip" -DestinationPath "."
-    
-    - name: Connect Ngrok Authtoken
-      run: |
-        .\ngrok.exe authtoken 2vQVdz7F82brwtpTYKFJbELmqq6_3zsmPpHoBTN7QX13u6JQ4
+        Expand-Archive ngrok.zip -DestinationPath "$env:USERPROFILE\ngrok"
+        $env:Path += ";$env:USERPROFILE\ngrok"
+        & "$env:USERPROFILE\ngrok\ngrok.exe" authtoken 2vQVdz7F82brwtpTYKFJbELmqq6_3zsmPpHoBTN7QX13u6JQ4
 
-    - name: Enable RDP and set password
+    - name: Enable RDP and Set Password
       run: |
         net user runneradmin Hapis@1234
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    - name: Start ngrok TCP tunnel on port 3389
+    - name: Start Ngrok TCP Tunnel (in background)
       run: |
-        Start-Process .\ngrok.exe -ArgumentList "tcp 3389" -NoNewWindow
-        Start-Sleep -Seconds 15
+        Start-Process -FilePath "$env:USERPROFILE\ngrok\ngrok.exe" -ArgumentList "tcp 3389" -WindowStyle Hidden
+        Start-Sleep -Seconds 10
 
-    - name: Get public ngrok TCP address
+    - name: Wait and Fetch RDP Address
+      shell: pwsh
       run: |
         $maxAttempts = 10
         $attempt = 0
@@ -43,11 +43,11 @@ jobs:
               $success = $true
             }
           } catch {
-            Start-Sleep -Seconds 2
+            Start-Sleep -Seconds 5
             $attempt++
           }
         }
 
         if (-not $success) {
-          Write-Host "❌ Gagal mendapatkan alamat ngrok. Pastikan ngrok berjalan dengan benar."
+          Write-Host "❌ Gagal mendapatkan alamat Ngrok. Pastikan tunnel berjalan."
         }
